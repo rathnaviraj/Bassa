@@ -1,8 +1,9 @@
 from Models import Download, Status
-from DBCon import *
 import time
 import sys
 import sqlalchemy.pool as pool
+
+from components.core.DBCon import get_db_con
 
 verbose = False
 
@@ -11,11 +12,12 @@ if len(sys.argv) == 2 and sys.argv[1] == '-v':
 
 threadpool = pool.QueuePool(get_db_con, max_overflow=10, pool_size=20)
 
+
 def add_download(download):
     db = threadpool.connect()
     if db is not None:
         cursor = db.cursor()
-        if download.link.split(':')[0]=="magnet":
+        if download.link.split(':')[0] == "magnet":
             download_name = download.link.split('&')[1].split('=')[1]
         else:
             download_name = download.link.split('/')[-1]
@@ -36,10 +38,10 @@ def remove_download(id, userName):
     db = threadpool.connect()
     if db is not None:
         cursor = db.cursor()
-        sql1 ="SELECT status FROM download WHERE id=%s;"
+        sql1 = "SELECT status FROM download WHERE id=%s;"
         sql = "DELETE from download WHERE id=%s and user_name=%s;"
         try:
-            cursor.execute(sql1,[str(id)])
+            cursor.execute(sql1, [str(id)])
             data = cursor.fetchone()
             if data[0] != Status.DEFAULT and data[0] != Status.ERROR:
                 db.commit()
@@ -125,7 +127,7 @@ def get_downloads(limit):
 
 
 def update_status_gid(gid, status, completed=False):
-    print ("Update status", gid, status, completed)
+    print("Update status", gid, status, completed)
     db = threadpool.connect()
     if db is not None:
         cursor = db.cursor()
@@ -159,6 +161,7 @@ def set_gid(id, gid):
         return "success"
     return "db connection error"
 
+
 def set_name(gid, name):
     db = threadpool.connect()
     if db is not None:
@@ -172,6 +175,7 @@ def set_name(gid, name):
             return e[1]
         return "success"
     return "db connection error"
+
 
 def set_size(gid, size):
     db = threadpool.connect()
@@ -187,6 +191,7 @@ def set_size(gid, size):
         return "success"
     return "db connection error"
 
+
 def get_to_download():
     db = threadpool.connect()
     if db is not None:
@@ -195,15 +200,16 @@ def get_to_download():
         try:
             cursor.execute(sql)
             if cursor.rowcount == 0:
-                if verbose: print ("zero count")
+                if verbose: print("zero count")
                 return None
             results = cursor.fetchall()
-            if verbose: print ("LIST", results)
+            if verbose: print("LIST", results)
             downloads = [Download(result['link'], result['user_name'], result['id']) for result in results]
             return downloads
         except MySQLdb.Error as e:
             return e[1]
     return "db connection error"
+
 
 def set_path(gid, path):
     db = threadpool.connect()
@@ -218,6 +224,7 @@ def set_path(gid, path):
             return e[1]
         return "success"
     return "db connection error"
+
 
 def get_download_path(id):
     db = threadpool.connect()
@@ -236,6 +243,7 @@ def get_download_path(id):
             return e[1]
     return "db connection error"
 
+
 def get_download_email(gid):
     db = threadpool.connect()
     if db is not None:
@@ -253,6 +261,7 @@ def get_download_email(gid):
             return e[1]
     return "db connection error"
 
+
 def get_to_delete(time, rate):
     recordsPerPage = 15
     db = threadpool.connect()
@@ -263,12 +272,13 @@ def get_to_delete(time, rate):
             cursor.execute(sql, (time, rate))
             results = cursor.fetchall()
             db.close()
-            if verbose: print ("Time", time, "Rate", rate)
-            if verbose: print ("results", results)
+            if verbose: print("Time", time, "Rate", rate)
+            if verbose: print("results", results)
             return results
         except MySQLdb.Error as e:
             return e[1]
     return "db connection error"
+
 
 def set_delete_status(path):
     db = threadpool.connect()
@@ -284,6 +294,7 @@ def set_delete_status(path):
         return "success"
     return "db connection error"
 
+
 def get_download_status(id):
     db = threadpool.connect()
     if db is not None:
@@ -294,13 +305,14 @@ def get_download_status(id):
             if cursor.rowcount == 0:
                 return None
             results = cursor.fetchone()
-            print ('results')
+            print('results')
             status = results['status']
             db.close()
             return status
         except MySQLdb.Error as e:
             return e[1]
     return "db connection error"
+
 
 def get_id_from_gid(gid):
     db = threadpool.connect()
@@ -319,6 +331,7 @@ def get_id_from_gid(gid):
             return e[1]
     return "db connection error"
 
+
 def get_username_from_gid(gid):
     db = threadpool.connect()
     if db is not None:
@@ -336,6 +349,7 @@ def get_username_from_gid(gid):
             return e[1]
     return "db connection error"
 
+
 def get_gid_from_id(id):
     db = threadpool.connect()
     if db is not None:
@@ -346,7 +360,7 @@ def get_gid_from_id(id):
             if cursor.rowcount == 0:
                 return None
             results = cursor.fetchone()
-            print ('results')
+            print('results')
             gid = results['gid']
             db.close()
             return gid

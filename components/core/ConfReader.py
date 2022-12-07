@@ -1,9 +1,7 @@
-import os
-import inspect
 import json
-import sys
+import os
 import platform
-
+import sys
 
 if platform.system() == 'Linux':
     configdir = os.path.expanduser('~') + '/.config/bassa/'

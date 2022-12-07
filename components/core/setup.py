@@ -9,11 +9,13 @@ EMAIL_CONF = 'email.conf'
 DL_CONF = 'dl.conf'
 LINUX_CONFDIR = os.path.expanduser('~') + '/.config/bassa/'
 WIN_CONFDIR = os.path.expanduser('~') + '/%app_data%/bassa/'
-OSX_CONFDIR  = os.path.expanduser('~') + '/.config/bassa/'
+OSX_CONFDIR = os.path.expanduser('~') + '/.config/bassa/'
+
 
 # Utility function to read the README file.
 def read(file_name):
     return open(os.path.join(os.path.dirname(__file__), file_name)).read()
+
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 requirements_path = os.path.join(base_dir, 'requirements.txt')

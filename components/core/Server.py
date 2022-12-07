@@ -1,17 +1,14 @@
-from flask import Flask
-from flask.ext.cors import CORS
-from flask import send_file, send_from_directory
-from flask import request, jsonify, abort, Response, g
-from flask_socketio import SocketIO, join_room
-from Auth import *
-from Models import *
-from DownloadManager import *
-import json, urllib.request, urllib.error, urllib.parse, os, _thread
-from multiprocessing import Process
-from DownloadDaemon import starter
-from EMail import send_mail
+import os
 import sys
+
+from flask import Flask
+from flask import g
+from flask import send_file, send_from_directory
+from flask.ext.cors import CORS
+from flask_socketio import SocketIO
 from gevent import monkey
+
+from Auth import *
 
 monkey.patch_all(ssl=False)
 
@@ -25,6 +22,7 @@ verbose = False
 if len(sys.argv) == 2 and sys.argv[1] == '-v':
     verbose = True
 
+
 def token_validator(token):
     user = verify_auth_token(token, server.config['SECRET_KEY'])
     if user != None:
@@ -36,11 +34,11 @@ def token_validator(token):
 
 @server.route('/ui/<string:path>')
 def serve_ui(path):
-    return send_from_directory(os.path.dirname(os.path.realpath(__file__))+"/ui", path)
+    return send_from_directory(os.path.dirname(os.path.realpath(__file__)) + "/ui", path)
+
 
 @server.route('/ui/')
 def serve_ui1():
-    return send_file(os.path.dirname(os.path.realpath(__file__))+"/ui/index.html")
+    return send_file(os.path.dirname(os.path.realpath(__file__)) + "/ui/index.html")
 
 # Import routes
-from routes import *

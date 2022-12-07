@@ -1,19 +1,19 @@
-import threading
+import json
 import queue
+import sys
+import threading
 from queue import Queue
-import json, time
-from DownloadManager import *
-from Models import Status, Download
-from EMail import send_mail
-from DiskMan import *
-from ConfReader import get_conf_reader
 
 import websocket
-import sys
+
+from ConfReader import get_conf_reader
+from DiskMan import *
+from DownloadManager import *
+from Models import Status
 
 conf = get_conf_reader("dl.conf")
 db_lock = threading.Lock()
-folder_size=0
+folder_size = 0
 startedDownloads = []
 handlerLst = []
 handler = None
@@ -24,6 +24,7 @@ messageQueue = Queue()
 
 if len(sys.argv) == 2 and sys.argv[1] == '-v':
     verbose = True
+
 
 class Handler(queue.Queue):
 
@@ -59,13 +60,14 @@ class Handler(queue.Queue):
     def worker(self):
         while True:
             download = self.get()
-            if download is None or folder_size>=conf['size_limit']:
+            if download is None or folder_size >= conf['size_limit']:
                 return
             self.start_download(download)
 
+
 class MessageHandler():
 
-    def __init__(self,ws):
+    def __init__(self, ws):
         self.num_workers = 5
         self.ws = ws
 
@@ -79,11 +81,11 @@ class MessageHandler():
         global handler, folder_size, mHandler, messageQueue
 
         while True:
-            #with get_lock:
+            # with get_lock:
             message = messageQueue.get()
             data = json.loads(message)
-            print(threading.current_thread().name,data)
-            print ("TOP LEVEL DATA", data)
+            print(threading.current_thread().name, data)
+            print("TOP LEVEL DATA", data)
             if 'id' in data and data['id'] == "act":
                 toBeDownloaded = get_to_download()
                 if toBeDownloaded:
@@ -93,7 +95,7 @@ class MessageHandler():
                             handler = Handler(self.ws)
                             handlerLst.append(handler)
                         handler.add_to_queue(download)
-                        print ("in download")
+                        print("in download")
                         rt = RepeatedTimer(1, get_status, self.ws, download.id, None)
                     handler.join()
             elif 'id' in data:
@@ -105,14 +107,14 @@ class MessageHandler():
                     set_download_gid(txt[1], gid)
                     update_status_gid(gid, Status.STARTED)
                     db_lock.release()
-                elif data['id']=="stat":
-                    print (data)
+                elif data['id'] == "stat":
+                    print(data)
                     gid = data['result']['gid']
                     db_lock.acquire()
                     set_path(data['result']['gid'], data['result']['files'][0]['path'])
-                    folder_size+=int(data['result']['files'][0]['completedLength'])
+                    folder_size += int(data['result']['files'][0]['completedLength'])
                     db_lock.release()
-                    path=data['result']['files'][0]['path'].split('/')
+                    path = data['result']['files'][0]['path'].split('/')
                     raw_size = int(data['result']['files'][0]['length'])
                     completedLength = data['result']['files'][0]['completedLength']
                     set_name(data['result']['gid'], path[-1])
@@ -129,24 +131,25 @@ class MessageHandler():
                     get_status(self.ws, None, data['params'][0]['gid'])
                     db_lock.release()
                     messageQueue.task_done()
-            
+
+
 class RepeatedTimer(object):
     def __init__(self, interval, function, *args, **kwargs):
-        self._timer     = None
-        self.interval   = interval
-        self.function   = function
-        self.args       = args
-        self.kwargs     = kwargs
+        self._timer = None
+        self.interval = interval
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
         self.is_running = False
         self.start()
 
     def _run(self):
         id = self.args[1]
         if get_download_status(id) == 3:
-            print ("stopping thread")
+            print("stopping thread")
             self.stop()
         else:
-            print ("run another iteration")
+            print("run another iteration")
             self.is_running = False
             self.start()
             self.function(*self.args, **self.kwargs)
@@ -161,19 +164,21 @@ class RepeatedTimer(object):
         self._timer.cancel()
         self.is_running = False
 
+
 def add_uri(ws, download):
     if verbose:
         print(folder_size)
-    if download is None or folder_size>=conf['size_limit']:
+    if download is None or folder_size >= conf['size_limit']:
         return
     msg = JSONer("down_" + str(download.id), 'aria2.addUri', [[download.link]])
     ws.send(msg)
+
 
 def get_status(ws, id=None, gid=None):
     if id:
         gid = get_gid_from_id(id)
     msg = JSONer("stat", 'aria2.tellStatus', [gid, ['gid', 'files']])
-    print ("Getting status")
+    print("Getting status")
     ws.send(msg)
 
 
@@ -195,17 +200,20 @@ def JSONer(id, method, params=None):
         data['params'] = params
     return json.dumps(data)
 
+
 def set_download_gid(id, gid):
     global startedDownloads
     for d in startedDownloads:
         if d.id == int(id):
             d.gid = gid
 
+
 def send_status(id, completedLength, fileSize, username):
-    progress=-1
-    if fileSize>0:
-        progress = int(float(completedLength)/float(fileSize) * 100)
+    progress = -1
+    if fileSize > 0:
+        progress = int(float(completedLength) / float(fileSize) * 100)
         sc.emit('status', {'id': id, 'progress': progress}, room=username, namespace='/progress')
+
 
 def find_supported_handler(download):
     for handler in handlerLst:
@@ -213,9 +221,11 @@ def find_supported_handler(download):
             return handler
     return None
 
+
 def on_message(ws, message):
     global handler, folder_size, mHandler, messageQueue
     messageQueue.put(message)
+
 
 def on_error(ws, error):
     print(error)
@@ -233,7 +243,7 @@ def starter(socket):
     global folder_size, handler, sc, mHandler
     sc = socket
     remove_files(conf['max_age'], conf['min_rating'])
-    folder_size=get_size(conf['down_folder'])
+    folder_size = get_size(conf['down_folder'])
     websocket.enableTrace(False)
     ws = websocket.WebSocketApp(conf['aria_server'],
                                 on_message=on_message,
@@ -243,11 +253,7 @@ def starter(socket):
     handler = Handler(ws)
     # socketio.emit("test", {'data': 'A NEW FILE WAS POSTED'}, namespace='/news')
     threading.Thread(target=handler.start_workers).start()
-    mHandler = MessageHandler(ws) 
+    mHandler = MessageHandler(ws)
     threading.Thread(target=mHandler.start_message_workers).start()
     messageQueue.join()
     ws.run_forever()
-
-
-
-

@@ -1,30 +1,37 @@
-from flask import Flask
-from flask.ext.cors import CORS
-from flask import send_file, send_from_directory
-from flask import request, jsonify, abort, Response, g
-from flask_socketio import SocketIO, join_room
-from Auth import *
-from Models import *
-from DownloadManager import *
-import json, urllib.request, urllib.error, urllib.parse, _thread
+import json
+import urllib.error
+import urllib.error
+import urllib.parse
+import urllib.parse
+import urllib.request
+import urllib.request
 from multiprocessing import Process
-from DownloadDaemon import starter
-from EMail import send_mail
-from gevent import monkey
-from Server import *
+
+from flask import request, Response, g
+from flask import send_file
+from flask_socketio import join_room
+
+from components.core.DownloadDaemon import starter
+from components.core.DownloadManager import add_download, remove_download, rate_download, get_downloads, \
+    get_download_path
+from components.core.Models import Download
+from components.core.Server import server, token_validator
+from components.core.UserManager import check_if_bandwidth_exceeded
+
 
 @server.route('/download/start')
 def start():
     try:
         token = request.headers['key']
-        if str(token)!=server.config['SECRET_KEY']:
+        if str(token) != server.config['SECRET_KEY']:
             return "{'error':'not authorized'}", 403
         global p
         p = Process(target=starter, args=(socketio,))
         p.start()
         return '{"status":"' + str(p.pid) + '"}'
     except Exception as e:
-            return '{"error":"' + e.message + '"}',400
+        return '{"error":"' + e.message + '"}', 400
+
 
 @socketio.on('join', namespace='/progress')
 def on_join(data):
@@ -32,16 +39,17 @@ def on_join(data):
     if room != '':
         join_room(room)
 
+
 @server.route('/download/kill')
 def kill():
     try:
         token = request.headers['key']
-        if str(token)!=server.config['SECRET_KEY']:
+        if str(token) != server.config['SECRET_KEY']:
             return "{'error':'not authorized'}", 403
         if p is not None:
             p.terminate()
             p.join()
-            jsonreq = json.dumps({'jsonrpc':'2.0', 'id':'qwer', 'method':'aria2.pauseAll'})
+            jsonreq = json.dumps({'jsonrpc': '2.0', 'id': 'qwer', 'method': 'aria2.pauseAll'})
             jsonreq = jsonreq.encode('ascii')
             c = urllib.request.urlopen('http://localhost:6800/jsonrpc', jsonreq)
             if verbose:
@@ -51,7 +59,7 @@ def kill():
         else:
             return '{"error":"error"}'
     except Exception as e:
-        return '{"error":"' + e.message + '"}',400
+        return '{"error":"' + e.message + '"}', 400
 
 
 @server.route('/api/download', methods=['POST'])
@@ -65,7 +73,7 @@ def add_download_request():
             else:
                 newDownload = Download(data['link'], g.user.userName)
                 status = add_download(newDownload)
-                resp = Response(response='{"status":"'+ status + '"}', status=200 if status == "success" else 400)
+                resp = Response(response='{"status":"' + status + '"}', status=200 if status == "success" else 400)
         except Exception as e:
             resp = Response(response='{"error":"' + e.message + '"}', status=400)
         resp.headers['token'] = token
@@ -83,7 +91,7 @@ def remove_download_request(id):
     if token is not None:
         try:
             status = remove_download(id, g.user.userName)
-            resp = Response(response='{"status":"'+ status + '"}', status= (200 if status == "success" else 400))
+            resp = Response(response='{"status":"' + status + '"}', status=(200 if status == "success" else 400))
         except Exception as e:
             resp = Response(response='{"error":"' + e.message + '"}', status=400)
         resp.headers['token'] = token
@@ -102,7 +110,7 @@ def rate_download_request(id):
         data = request.get_json(force=True)
         try:
             status = rate_download(id, g.user.userName, data['rate'])
-            resp = Response(response='{"status":"'+ status + '"}', status= (200 if status == "success" else 400))
+            resp = Response(response='{"status":"' + status + '"}', status=(200 if status == "success" else 400))
         except Exception as e:
             resp = Response(response='{"error":"' + e.message + '"}', status=400)
         resp.headers['token'] = token
@@ -117,11 +125,11 @@ def rate_download_request(id):
 @server.route('/api/downloads/<int:limit>', methods=['GET'])
 def get_downloads_request(limit):
     token = token_validator(request.headers['token'])
-    if token is not None :
+    if token is not None:
         try:
             status = get_downloads(int(limit))
             if not isinstance(status, str):
-                resp = Response(response=json.dumps(status),status=200)
+                resp = Response(response=json.dumps(status), status=200)
             else:
                 resp = Response('{"error":"' + status + '"}', status=400)
         except Exception as e:
@@ -134,16 +142,17 @@ def get_downloads_request(limit):
     else:
         return '{"error":"token error"}', 403
 
+
 @server.route('/api/download/<int:id>', methods=['GET'])
 def get_download(id):
     token = token_validator(request.headers['token'])
-    if token is not None :
+    if token is not None:
         try:
             status = get_download_path(int(id))
-            if status is not None and status!="db connection error":
+            if status is not None and status != "db connection error":
                 if verbose:
                     print(status)
-                return send_file(status,as_attachment=True, mimetype='multipart/form-data')
+                return send_file(status, as_attachment=True, mimetype='multipart/form-data')
             else:
                 return '{"error":"file not found"}', 404
         except Exception as e:
@@ -153,4 +162,3 @@ def get_download(id):
         return '{"error":"not authorized"}', 403
     else:
         return '{"error":"token error"}', 403
-
